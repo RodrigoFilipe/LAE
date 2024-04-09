@@ -1,12 +1,8 @@
 package pt.isel
 
-import kotlin.reflect.KClass
-import kotlin.reflect.KMutableProperty
-import kotlin.reflect.KParameter
-import kotlin.reflect.KProperty
+import kotlin.reflect.*
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.memberProperties
-import kotlin.reflect.full.primaryConstructor
 
 
 @Target(AnnotationTarget.PROPERTY)
@@ -38,19 +34,41 @@ class YamlParserReflect<T : Any>(type: KClass<T>) : AbstractYamlParser<T>(type) 
      * that has all the mandatory parameters in the map and optional parameters for the rest.
      */
     override fun newInstance(args: Map<String, Any>): T {
-        val ctor = type.constructors.first() //tem que criar instancia de T, nao de YamlParserReflect
+        val ctor = type.constructors.first()
 
-        val map: Map<KParameter, Any?> = this::class
+        val propsToCtorParameters: List<Pair<KProperty<*>, KParameter?>> = type
             .memberProperties
             .map { fromProp ->
-                    fromProp to matchParameter(fromProp, ctor.parameters) }
-            .filter{ it.second != null }
-            .associate { pair ->
-                val fromVal = pair.first.call(this)
-                val destArg = pair.second!!       
-                destArg to fromVal }
-        return ctor.callBy(map)
+                fromProp to matchParameter(fromProp, ctor.parameters) }
+            .filter { it.second != null }
 
+        val ctorArgs = propsToCtorParameters
+            .associate { pair ->
+                val fromVal = args[pair.first.name]
+                val destArg = pair.second!!
+                destArg to convertType(pair.first.returnType, fromVal)
+            }
+
+        return ctor.callBy(ctorArgs)
+    }
+
+    fun convertType(srcType: KType, value: Any?): Any? {
+        if (value == null && !srcType.isMarkedNullable) {
+            return when (srcType.classifier) {
+                List::class -> emptyList<Any>()
+                else -> null
+            }
+        }
+        if ((srcType.classifier as KClass<*>).javaPrimitiveType != null || srcType == typeOf<String>()) {
+            return when (srcType.classifier) {
+                Int::class -> value.toString().toInt()
+                Long::class -> value.toString().toLong()
+                Double::class -> value.toString().toDouble()
+                Boolean::class -> value.toString().toBoolean()
+                else -> value
+            }
+        }
+        return null
     }
 
 }

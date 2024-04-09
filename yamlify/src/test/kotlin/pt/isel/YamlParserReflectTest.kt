@@ -27,6 +27,7 @@ class YamlParserReflectTest {
         assertEquals(873435, st.nr)
         assertEquals("Oleiros", st.from)
     }
+
     @Test fun parseStudentWithAddress() {
         val yaml = """
                 name: Maria Candida
