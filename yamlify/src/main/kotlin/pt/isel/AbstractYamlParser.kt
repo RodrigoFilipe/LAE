@@ -41,7 +41,6 @@ abstract class AbstractYamlParser<T : Any>(val type: KClass<T>) : YamlParser<T> 
                         list.addLast(listOf(tlist[i]))
                     }
                 }
-
             }
         }
 
